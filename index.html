@@ -44,6 +44,9 @@
   --tray:#26318A; --tray-hole:#161D5C; --tray-edge:#3846B5; --tray-ink:#D6DAFF;
   color-scheme:dark;
 }
+:root{--danger:#C2342F}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){--danger:#FF8A80} }
+:root[data-theme="dark"]{--danger:#FF8A80}
 :root[data-contrast="on"]{ --correct:#F5793A; --correct-ink:#FFFFFF; --present:#85C0F9; --present-ink:#10162E; }
 
 *,*::before,*::after{box-sizing:border-box}
@@ -240,6 +243,27 @@ button.hole{cursor:pointer}
   padding:10px 16px; border-radius:10px; font-weight:700; z-index:30; opacity:0; transition:opacity .2s; pointer-events:none; max-width:90vw; text-align:center}
 .toast.show{opacity:1}
 
+.field{width:100%; font:inherit; font-size:1.05rem; padding:12px 14px; border-radius:12px; border:2px solid var(--line-strong); background:var(--bg); color:var(--ink); margin-top:14px}
+.field:focus{outline:none; border-color:var(--brand)}
+.err{color:var(--danger); min-height:1.3em; font-weight:700; margin:8px 0 0}
+.small{font-size:.85rem; line-height:1.45}
+.lb{list-style:none; margin:0; padding:0}
+.lb li{display:grid; grid-template-columns:28px 1fr auto; gap:12px; align-items:center; padding:11px 8px; border-bottom:1px solid var(--line)}
+.lb.all li{grid-template-columns:28px 1fr 46px 46px; gap:8px}
+.lb li.me{background:color-mix(in srgb, var(--brand) 13%, transparent); border-radius:10px; border-bottom-color:transparent}
+.lb .rk{font-family:var(--font-display); font-weight:700; color:var(--muted); text-align:center}
+.lb .nm{font-weight:700; min-width:0; overflow-wrap:anywhere}
+.lb .nm small{font-weight:400; color:var(--muted)}
+.lb .meta{display:block; font-size:.8rem; margin-top:2px; color:var(--muted); font-weight:400}
+.lb .res{font-family:var(--font-display); font-weight:700; text-align:right}
+.lb .res.ko{color:var(--muted)}
+.lb.all .res{display:flex; flex-direction:column; align-items:flex-end; font-family:var(--font-ui)}
+.lb.all .res b{font-family:var(--font-display); font-size:1.08rem}
+.lb.all .res small{font-size:.72rem; color:var(--muted)}
+.lbtabs{margin:16px 0 8px}
+.btn.danger{background:transparent; color:var(--danger); border:2px solid currentColor; flex:none; min-height:40px; font-size:.92rem}
+.setting .val{font-weight:400; color:var(--muted)}
+
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation:none !important; transition:none !important}
 }
@@ -254,6 +278,13 @@ const DATA = {"en":{"answers":["aback","abase","abate","abbey","abbot","abhor","
 </script>
 <script>
 "use strict";
+/* ---------------------------------------------------------------------
+   LEADERBOARD SETUP
+   Paste your Google Apps Script web app URL between the quotes below.
+   It looks like https://script.google.com/macros/s/AKfy.../exec
+   Leave it empty to turn leaderboards off.
+   --------------------------------------------------------------------- */
+const LEADERBOARD_URL = 'https://script.google.com/macros/s/AKfycbz6ue_XgfbhRnSRs8K3plryRMIK9Rta0yh5lAb7vj5UHqsuLDHVzvUIABG3EzSEKYaE/exec';
 /* =====================================================================
    Mots & Pions: Wordle, Wordle x4 and Mastermind, in English and French.
    To add a game: write a module with {id, preview(), status(), open()}
@@ -283,6 +314,19 @@ const T = {
     language:'Language', theme:'Theme', system:'System', light:'Light', dark:'Dark',
     contrast:'Colorblind colors', contrastHint:'Orange and blue instead of green and yellow, and numbers on pegs.',
     classic:'Classic', super:'Super', practiceLbl:'Practice', guesses:'Guesses',
+    leaderboard:'Leaderboard', today:'Today', allTime:'All time', loading:'Loading the leaderboard…',
+    lbError:'Couldn’t load the leaderboard. Check your connection and try again.', retry:'Try again',
+    lbEmptyToday:'No one has finished today’s puzzle yet.', lbEmptyAll:'No results yet. Finish a daily puzzle to get on the board.',
+    you:'(you)', winsLbl:'wins', avg:'avg', lbMeta:(p, pct, b) => `${p} played, ${pct}% won, best streak ${b}`,
+    nickTitle:'Pick a nickname', nickBody:'It appears on the shared leaderboards next to your daily results. Only daily puzzles count, not practice games.',
+    nickPrivacy:'Anyone with the link to this page can see the leaderboards, so use a nickname rather than your full name. You can change it or remove your scores in Settings.',
+    nickPlaceholder:'Nickname', nickSave:'Save nickname', nickLater:'Not now', cancel:'Cancel', saving:'Saving…',
+    nickShort:'Use 2 to 16 characters.', nickTaken:'That nickname is already taken. Try another one.',
+    netError:'Couldn’t reach the leaderboard. Check your connection and try again.', nickSaved:n => `Playing as ${n}`,
+    nickname:'Nickname', noNick:'Not set', change:'Change', add:'Add nickname',
+    removeScores:'Remove my scores', removeHint:'Deletes your nickname and results from the shared leaderboards.', remove:'Remove',
+    removeConfirm:'Remove your nickname and all your results from the leaderboards? This can’t be undone.', removed:'Your scores were removed',
+    joinLb:'Add a nickname to appear on this leaderboard.',
     games:{
       wordle:{name:'Wordle', desc:'Find the 5-letter word in 6 tries.'},
       quad:{name:'Wordle ×4', desc:n=>`Four words at once, ${n} tries.`},
@@ -315,6 +359,19 @@ const T = {
     language:'Langue', theme:'Thème', system:'Système', light:'Clair', dark:'Sombre',
     contrast:'Couleurs daltonien', contrastHint:'Orange et bleu au lieu de vert et jaune, et numéros sur les pions.',
     classic:'Classique', super:'Super', practiceLbl:'Entraînement', guesses:'Essais',
+    leaderboard:'Classement', today:'Aujourd’hui', allTime:'Général', loading:'Chargement du classement…',
+    lbError:'Impossible de charger le classement. Vérifie ta connexion et réessaie.', retry:'Réessayer',
+    lbEmptyToday:'Personne n’a encore fini la partie du jour.', lbEmptyAll:'Aucun résultat pour l’instant. Termine une partie du jour pour entrer au classement.',
+    you:'(toi)', winsLbl:'victoires', avg:'moy.', lbMeta:(p, pct, b) => `${p} parties, ${pct} % gagnées, meilleure série ${b}`,
+    nickTitle:'Choisis un pseudo', nickBody:'Il s’affiche dans les classements partagés, à côté de tes résultats du jour. Seules les parties du jour comptent, pas l’entraînement.',
+    nickPrivacy:'Toute personne qui a le lien de cette page peut voir les classements : mieux vaut un pseudo que ton nom complet. Tu peux le changer ou supprimer tes scores dans les réglages.',
+    nickPlaceholder:'Pseudo', nickSave:'Enregistrer', nickLater:'Plus tard', cancel:'Annuler', saving:'Enregistrement…',
+    nickShort:'Entre 2 et 16 caractères.', nickTaken:'Ce pseudo est déjà pris. Essaie un autre.',
+    netError:'Impossible de joindre le classement. Vérifie ta connexion et réessaie.', nickSaved:n => `Tu joues en tant que ${n}`,
+    nickname:'Pseudo', noNick:'Aucun', change:'Modifier', add:'Ajouter un pseudo',
+    removeScores:'Supprimer mes scores', removeHint:'Supprime ton pseudo et tes résultats des classements partagés.', remove:'Supprimer',
+    removeConfirm:'Supprimer ton pseudo et tous tes résultats des classements ? C’est définitif.', removed:'Tes scores ont été supprimés',
+    joinLb:'Ajoute un pseudo pour apparaître dans ce classement.',
     games:{
       wordle:{name:'Wordle', desc:'Trouve le mot de 5 lettres en 6 essais.'},
       quad:{name:'Wordle ×4', desc:n=>`Quatre mots à la fois, ${n} essais.`},
@@ -337,6 +394,13 @@ let store = {};
 try { store = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) { store = {}; }
 store.settings = Object.assign({lang:'en', theme:'system', contrast:false, mmVariant:'classic', quadMax:10, modes:{}}, store.settings || {});
 store.games = store.games || {};
+function newId(){
+  try { return Array.from(crypto.getRandomValues(new Uint8Array(12)), b => b.toString(16).padStart(2, '0')).join(''); }
+  catch (e) { let x = ''; while (x.length < 24) x += Math.floor(Math.random() * 16).toString(16); return x; }
+}
+store.player = Object.assign({id:null, name:null, declined:false}, store.player || {});
+if (!/^[a-f0-9]{16,40}$/.test(store.player.id || '')) store.player.id = newId();
+store.lbQueue = Array.isArray(store.lbQueue) ? store.lbQueue : [];
 function save(){ try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {} }
 function rec(key){ return store.games[key] || (store.games[key] = {}); }
 const lang = () => store.settings.lang;
@@ -362,6 +426,7 @@ const ICON = {
   help:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg>',
   stats:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 20V12M12 20V5M19 20v-6"/></svg>',
   gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  trophy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5a4 4 0 0 1-8 0V4z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7M10 17h4"/></svg>',
   x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   bksp:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="M17 9.5l-5 5M12 9.5l5 5"/></svg>'
 };
@@ -473,6 +538,13 @@ function settingsSheet(){
       row(t('contrast'), t('contrastHint'), h('button', {class:'switch', 'aria-pressed': String(!!store.settings.contrast), 'aria-label': t('contrast'),
         onclick: () => { store.settings.contrast = !store.settings.contrast; save(); applySettings(); route(); settingsSheet(); }}))
     );
+    if (LB_ON){
+      sheet.append(
+        row(t('nickname'), store.player.name || t('noNick'),
+          h('button', {class:'chip', onclick: () => nicknameSheet(false, settingsSheet)}, store.player.name ? t('change') : t('add'))),
+        store.player.name ? row(t('removeScores'), t('removeHint'), h('button', {class:'btn danger', onclick: removeScores}, t('remove'))) : ''
+      );
+    }
   });
 }
 function applySettings(){
@@ -480,6 +552,155 @@ function applySettings(){
   if (s.theme === 'system') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', s.theme);
   if (s.contrast) root.setAttribute('data-contrast', 'on'); else root.removeAttribute('data-contrast');
   root.lang = s.lang;
+}
+
+/* =====================================================================
+   LEADERBOARD (talks to the Google Apps Script in leaderboard.gs)
+   ===================================================================== */
+const LB_ON = /^https?:\/\/\S+$/.test(LEADERBOARD_URL.trim());
+let lbPrompted = false, lbFlushing = false;
+const lbCache = {};
+async function lbFetch(url, opts){
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 15000);
+  try {
+    const r = await fetch(url, Object.assign({signal:ctl.signal, redirect:'follow'}, opts || {}));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } finally { clearTimeout(timer); }
+}
+const lbPost = body => lbFetch(LEADERBOARD_URL.trim(), {method:'POST', body:JSON.stringify(body)});
+const lbGet = params => lbFetch(LEADERBOARD_URL.trim() + '?' + new URLSearchParams(params));
+
+function lbQueueResult(key, won, guesses, max, date){
+  if (!LB_ON) return;
+  if (store.lbQueue.some(q => q.key === key && q.date === date)) return;
+  store.lbQueue.push({key, date, won, guesses, max});
+  store.lbQueue = store.lbQueue.slice(-30);
+  save(); lbFlush();
+}
+async function lbFlush(){
+  if (!LB_ON || lbFlushing || !store.player.name || !store.lbQueue.length) return;
+  lbFlushing = true;
+  const today = dayIndex(todayStr());
+  store.lbQueue = store.lbQueue.filter(q => dayIndex(q.date) >= today - 2);
+  let reRegistered = false;
+  try {
+    while (store.lbQueue.length){
+      const q = store.lbQueue[0];
+      let res;
+      try { res = await lbPost(Object.assign({action:'submit', playerId:store.player.id}, q)); } catch (e) { break; }
+      if (res && res.error === 'noname' && !reRegistered){
+        // The sheet lost this player (for example after a manual edit): register the nickname again, then retry.
+        reRegistered = true;
+        try { const r2 = await lbPost({action:'name', playerId:store.player.id, name:store.player.name}); if (r2 && r2.ok) continue; } catch (e) {}
+        break;
+      }
+      if (!res || res.error === 'server') break;
+      store.lbQueue.shift(); save();
+      for (const k in lbCache) delete lbCache[k];
+    }
+  } finally { lbFlushing = false; save(); }
+}
+
+function nicknameSheet(firstTime, onDone){
+  openSheet(sheet => {
+    sheet.append(h('h2', null, t('nickTitle')), h('p', null, t('nickBody')));
+    const input = h('input', {class:'field', type:'text', maxlength:'16', autocomplete:'off', autocapitalize:'off', spellcheck:'false',
+      placeholder:t('nickPlaceholder'), 'aria-label':t('nickname'), enterkeyhint:'done'});
+    input.value = store.player.name || '';
+    const err = h('p', {class:'err', role:'alert'});
+    const saveBtn = h('button', {class:'btn primary'}, t('nickSave'));
+    const other = h('button', {class:'btn ghost', onclick: () => closeSheet()}, firstTime ? t('nickLater') : t('cancel'));
+    async function submit(){
+      const name = input.value.replace(/\s+/g, ' ').trim().replace(/^[=+\-@']+/, '');
+      if (name.length < 2 || name.length > 16){ err.textContent = t('nickShort'); input.focus(); return; }
+      saveBtn.disabled = true; saveBtn.textContent = t('saving'); err.textContent = '';
+      try {
+        const res = await lbPost({action:'name', playerId:store.player.id, name});
+        if (res && res.ok){
+          store.player.name = res.name; store.player.declined = false; save();
+          for (const k in lbCache) delete lbCache[k];
+          closeSheet(); toast(t('nickSaved')(res.name)); lbFlush();
+          if (onDone) onDone();
+          return;
+        }
+        err.textContent = res && res.error === 'taken' ? t('nickTaken') : res && res.error === 'name' ? t('nickShort') : t('netError');
+      } catch (e) { err.textContent = t('netError'); }
+      saveBtn.disabled = false; saveBtn.textContent = t('nickSave');
+    }
+    saveBtn.addEventListener('click', submit);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); submit(); } });
+    sheet.append(input, err, h('div', {class:'actions', style:'margin-top:8px'}, saveBtn, other), h('p', {class:'sub small', style:'margin-top:16px'}, t('nickPrivacy')));
+  });
+  if (!matchMedia('(pointer: coarse)').matches){ const i = document.querySelector('.sheet input'); if (i) i.focus(); }
+}
+function maybeAskNickname(){
+  if (!LB_ON || lbPrompted || store.player.name || store.player.declined || sheetOpen) return;
+  lbPrompted = true; // ask once per visit until a nickname is saved
+  nicknameSheet(true);
+}
+
+function lbLabel(key){
+  const [g, a, b] = key.split(':'), name = T[lang()].games[g].name;
+  if (g === 'mastermind') return `${name} ${t(a)}`;
+  return `${name} ${a.toUpperCase()}` + (g === 'quad' ? `, ${b} ${t('guesses').toLowerCase()}` : '');
+}
+function lbTodayList(rows){
+  if (!rows.length) return h('p', {class:'sub'}, t('lbEmptyToday'));
+  return h('ol', {class:'lb'}, rows.map(r => {
+    const rank = r.won ? 1 + rows.filter(o => o.won && o.guesses < r.guesses).length : '–';
+    return h('li', {class: r.me ? 'me' : null},
+      h('span', {class:'rk'}, rank),
+      h('span', {class:'nm'}, r.name, r.me ? h('small', null, ' ' + t('you')) : null),
+      h('span', {class:'res' + (r.won ? '' : ' ko')}, `${r.won ? r.guesses : 'X'}/${r.max}`));
+  }));
+}
+function lbAllList(rows){
+  if (!rows.length) return h('p', {class:'sub'}, t('lbEmptyAll'));
+  return h('ol', {class:'lb all'}, rows.map((r, i) => h('li', {class: r.me ? 'me' : null},
+    h('span', {class:'rk'}, i + 1),
+    h('span', {class:'nm'}, h('span', null, r.name, r.me ? h('small', null, ' ' + t('you')) : null), h('span', {class:'meta'}, t('lbMeta')(r.played, r.pct, r.best))),
+    h('span', {class:'res'}, h('b', null, r.wins), h('small', null, t('winsLbl'))),
+    h('span', {class:'res'}, h('b', null, r.avg == null ? '–' : r.avg.toFixed(1)), h('small', null, t('avg'))))));
+}
+function leaderboardSheet(key){
+  let tab = 'today';
+  openSheet(sheet => {
+    sheet.append(h('h2', null, t('leaderboard')), h('div', {class:'sub'}, lbLabel(key)));
+    const tabs = h('div', {class:'lbtabs'}), body = h('div', {'aria-live':'polite'});
+    sheet.append(tabs, body);
+    const draw = () => {
+      tabs.replaceChildren(seg([['today', t('today')], ['all', t('allTime')]], tab, v => { tab = v; draw(); }));
+      const c = lbCache[key];
+      if (!c || c.state === 'loading'){ body.replaceChildren(h('p', {class:'sub'}, t('loading'))); return; }
+      if (c.state === 'error'){ body.replaceChildren(h('p', null, t('lbError')), h('button', {class:'btn ghost', style:'width:100%', onclick: load}, t('retry'))); return; }
+      body.replaceChildren(tab === 'today' ? lbTodayList(c.data.today || []) : lbAllList(c.data.all || []));
+      if (!store.player.name) body.append(h('p', {class:'sub', style:'margin-top:16px'}, t('joinLb')),
+        h('button', {class:'btn primary', style:'width:100%', onclick: () => nicknameSheet(false, () => leaderboardSheet(key))}, t('add')));
+    };
+    async function load(){
+      lbCache[key] = {state:'loading'}; draw();
+      await lbFlush();
+      try {
+        const res = await lbGet({action:'board', key, date:todayStr(), me:store.player.id});
+        if (!res || !res.ok) throw new Error('bad response');
+        lbCache[key] = {state:'ok', data:res, at:Date.now()};
+      } catch (e) { lbCache[key] = {state:'error'}; }
+      if (sheet.isConnected) draw();
+    }
+    const c = lbCache[key];
+    if (c && c.state === 'ok' && Date.now() - c.at < 20000) draw(); else load();
+  });
+}
+async function removeScores(){
+  if (!confirm(t('removeConfirm'))) return;
+  try {
+    const res = await lbPost({action:'delete', playerId:store.player.id});
+    if (!res || !res.ok) throw new Error('bad response');
+    store.player.name = null; store.player.declined = true; store.lbQueue = []; save();
+    for (const k in lbCache) delete lbCache[k];
+    toast(t('removed')); settingsSheet();
+  } catch (e) { toast(t('netError'), 2800); }
 }
 
 /* =====================================================================
@@ -627,7 +848,7 @@ function wordSubmit(G){
   if (!langData(G.l).valid.has(G.cur)){ toast(t('notInList')); shakeActive(); return; }
   s.guesses.push(G.cur); G.cur = '';
   const solved = s.answers.every(a => s.guesses.includes(a));
-  if (solved || s.guesses.length >= conf.max){ s.done = true; s.won = solved; if (G.mode === 'daily') recordStat(G.r, solved, s.guesses.length, s.date); }
+  if (solved || s.guesses.length >= conf.max){ s.done = true; s.won = solved; if (G.mode === 'daily'){ recordStat(G.r, solved, s.guesses.length, s.date); lbQueueResult(G.key, solved, s.guesses.length, G.max, s.date); } }
   save();
   G.animRow = s.guesses.length - 1; G.revealing = true;
   renderWordStage(G);
@@ -661,6 +882,7 @@ function openWordResult(G){
     const actions = h('div', {class:'actions'});
     if (G.mode === 'practice') actions.append(h('button', {class:'btn primary', onclick: () => { closeSheet(); newPractice(G.id); }}, t('newGame')));
     actions.append(h('button', {class:'btn ' + (G.mode === 'practice' ? 'ghost' : 'primary'), onclick: () => shareText(wordShare(G), sheet)}, t('share')));
+    if (LB_ON && G.mode === 'daily') actions.append(h('button', {class:'btn ghost', onclick: () => leaderboardSheet(G.key)}, t('leaderboard')));
     sheet.append(actions);
     if (G.mode === 'daily'){ sheet.append(countdownLine(), h('h3', null, t('stats')), statsBlock(G.r, conf.max, s.won ? s.guesses.length : null)); }
   });
@@ -765,7 +987,7 @@ function mmCheck(G){
   if (G.cur.some(c => c == null)){ toast(t('fillAll')); const a = document.querySelector('.mrow.active'); if (a){ a.classList.remove('shake'); void a.offsetWidth; a.classList.add('shake'); } return; }
   const g = G.cur.slice(); s.guesses.push(g);
   const [e] = mmFeedback(g, s.secret);
-  if (e === conf.holes || s.guesses.length >= conf.max){ s.done = true; s.won = e === conf.holes; if (G.mode === 'daily') recordStat(G.r, s.won, s.guesses.length, s.date); }
+  if (e === conf.holes || s.guesses.length >= conf.max){ s.done = true; s.won = e === conf.holes; if (G.mode === 'daily'){ recordStat(G.r, s.won, s.guesses.length, s.date); lbQueueResult(G.key, s.won, s.guesses.length, conf.max, s.date); } }
   save();
   G.cur = Array(conf.holes).fill(null); G.cursor = 0; G.animRow = s.guesses.length - 1; G.revealing = true;
   renderMMStage(G);
@@ -789,6 +1011,7 @@ function openMMResult(G){
     const actions = h('div', {class:'actions'});
     if (G.mode === 'practice') actions.append(h('button', {class:'btn primary', onclick: () => { closeSheet(); newPractice('mastermind'); }}, t('newGame')));
     actions.append(h('button', {class:'btn ' + (G.mode === 'practice' ? 'ghost' : 'primary'), onclick: () => shareText(mmShare(G), sheet)}, t('share')));
+    if (LB_ON && G.mode === 'daily') actions.append(h('button', {class:'btn ghost', onclick: () => leaderboardSheet(G.key)}, t('leaderboard')));
     sheet.append(actions);
     if (G.mode === 'daily') sheet.append(countdownLine(), h('h3', null, t('stats')), statsBlock(G.r, conf.max, s.won ? s.guesses.length : null));
   });
@@ -870,6 +1093,7 @@ function renderHome(){
     h('div', {class:'date'}, dateTxt),
     list,
     h('p', {class:'note'}, t('note'))));
+  setTimeout(maybeAskNickname, 350);
 }
 
 function openGame(id){
@@ -890,6 +1114,7 @@ function openGame(id){
       ib('back', t('back'), () => { if (cameFromHome){ cameFromHome = false; history.back(); } else location.hash = ''; }),
       h('h1', {class:'gtitle'}, gname + (id === 'mastermind' ? '' : ' ' + lang().toUpperCase()), mode === 'daily' ? h('span', {class:'sub', style:'font-family:var(--font-ui); font-size:.95rem; margin-left:8px'}, '#' + puzzleNo(CUR.s.date)) : null),
       ib('help', t('help'), () => helpSheet(id)),
+      LB_ON ? ib('trophy', t('leaderboard'), () => leaderboardSheet(CUR.key)) : null,
       ib('stats', t('stats'), () => openSheet(sh => { sh.append(h('h2', null, t('stats')), h('div', {class:'sub'}, gname + (id === 'mastermind' ? ' ' + t(store.settings.mmVariant) : ' ' + lang().toUpperCase()) + (id === 'quad' ? `, ${statsMax} ${t('guesses').toLowerCase()}` : '')), statsBlock(statsRec, statsMax, null)); }))),
     bar,
     h('div', {id:'stage', class:'stage'}),
@@ -921,12 +1146,17 @@ window.addEventListener('hashchange', route);
 let resizeTimer; window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (CUR_API && !(CUR && CUR.revealing)) CUR_API.render(); }, 120); });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) return;
+  lbFlush();
   if (!CUR) renderHome();
   else if (CUR.mode === 'daily' && CUR.s.date !== todayStr()) route();
 });
 
 applySettings();
 route();
+lbFlush();
+window.addEventListener('online', lbFlush);
 </script>
+</body>
+</html>
 </body>
 </html>
